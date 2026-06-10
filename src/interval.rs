@@ -1,0 +1,7 @@
+
+struct Interval {
+}
+
+enum Value {
+    
+}
