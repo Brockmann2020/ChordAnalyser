@@ -4,20 +4,21 @@ use std::fmt;
 use std::fmt::write;
 use std::ops::{Add, Sub};
 use crate::interval::Interval;
+use crate::note::Accidental::Natural;
 
-#[derive(Copy, Clone, Eq,)]
+#[derive(Copy, Clone, Eq, Hash, Debug)]
 pub(crate) struct Note {
     pub value: u8,
     pub letter: Letter,
     pub accidental: Accidental,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub(crate) enum Letter {
     A=0, B=2, C=3, D=5, E=7, F=8, G=10
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub(crate) enum Accidental {
     Natural=0, Sharp=1, Flat=-1
 }
@@ -82,11 +83,22 @@ impl Add<Note> for Note {
     type Output = Interval;
 
     fn add(self, rhs: Note) -> Self::Output {
-        let mut result = Interval::from_value(self.value as isize - rhs.value as isize);
+        let mut value = self.value as isize - rhs.value as isize;
+        if value < 0 {
+            value = -value;
+        }
+        
+        let mut result = Interval::from_value(value);
         if result.value > 12 {
             result.shift_octave();
         }
         result
+    }
+}
+
+impl From<Letter> for Note {
+    fn from(value: Letter) -> Self {
+        value + Natural
     }
 }
 
@@ -110,7 +122,7 @@ impl Note {
     }
 
     fn from_value(value: isize, preferred_accidental: Accidental) -> Note {
-        let semitone = value % 12;
+        let semitone = value.rem_euclid(12);
         match (semitone, preferred_accidental) {
             (0,  _)                => Note { value: value as u8, letter: Letter::A, accidental: Accidental::Natural },
             (1,  Accidental::Flat) => Note { value: value as u8, letter: Letter::B, accidental: Accidental::Flat },

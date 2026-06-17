@@ -1,15 +1,17 @@
 use std::cmp::Ordering;
+use std::fmt::{write, Display, Pointer};
 use std::ops::Add;
+use crate::interval::Quality::Diminished;
 use crate::note::Note;
 
-#[derive(Copy, Clone, Eq,)]
+#[derive(Copy, Clone, Eq, Debug)]
 pub struct Interval {
     pub value: usize,
     pub name: Name,
     pub quality: Quality
 }
 
-#[derive(Copy, Clone, PartialEq, Eq,)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Name {
     Root=0,
     Second=2,
@@ -24,7 +26,7 @@ pub enum Name {
     Thirteenth=20,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq,)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Quality {
     Perfect,
     Major,
@@ -33,6 +35,22 @@ pub enum Quality {
     Diminished,
 }
 
+impl Quality {
+    pub fn safe_cast_to_isize(&self, name: Name) -> isize {
+        if *self == Diminished {
+            return match name {
+                Name::Fourth => -1,
+                Name::Fifth => -1,
+                _ => -2
+            }
+        }
+        (*self).into()
+    }
+}
+
+/**
+Diminished can have different delta values depending on the interval that it's applied to. Use save_cast_to_isize for accurate casting
+*/
 impl Into<isize> for Quality {
     fn into(self) -> isize {
         match self {
@@ -45,11 +63,58 @@ impl Into<isize> for Quality {
     }
 }
 
+/**
+Lets you use addition for Interval initialization.
+*/
 impl Add<Quality> for Name {
     type Output = Interval;
-    
     fn add(self, other: Quality) -> Interval {
-        Interval::from_value(self as isize + other as isize)
+        let value = self as isize + other.safe_cast_to_isize(self);
+
+        // This prevents panics and undefined behavior (diminished root or nonsense like that), although a more precise check and error handling should be implemented. For now, it should work in most scenarios (if used correctly).
+        if value < 0 || value > 24 {
+            return Interval::from_value(value);
+        }
+
+        Interval {value: value as usize, name: self, quality: other}
+    }
+}
+
+impl Display for Quality {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let str = match self {
+            Quality::Perfect => "Perfect",
+            Quality::Major => "Major",
+            Quality::Minor => "Minor",
+            Quality::Augmented => "Augmented",
+            Diminished => "Diminished", 
+        };
+        write!(f, "{}", str)
+    }
+}
+
+impl Display for Name {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let str = match self {
+            Name::Root => "Root",
+            Name::Second => "Second",
+            Name::Third => "Third",
+            Name::Fourth => "Fourth",
+            Name::Fifth => "Fifth",
+            Name::Sixth => "Sixth",
+            Name::Seventh => "Seventh",
+            Name::Octave => "Octave",
+            Name::Ninth => "Ninth",
+            Name::Eleventh => "Eleventh",
+            Name::Thirteenth => "Thirteenth",
+        };
+        write!(f, "{}", str)
+    }
+}
+
+impl Display for Interval {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{} {}", self.name, self.quality)
     }
 }
 
@@ -88,11 +153,7 @@ impl Interval {
     pub fn new(value: usize, name: Name, quality: Quality) -> Self {
         name + quality
     }
-
-    pub fn is(&self, name: Name, quality: Quality) -> bool {
-        self.name == name && self.quality == quality
-    }
-
+    
     pub fn shift_octave(&mut self) {
         match self.value {
             0..12 => *self = Interval::from_value((self.value + 12) as isize),
@@ -101,7 +162,7 @@ impl Interval {
     }
 
     pub fn from_value(value: isize) -> Interval {
-        let value = (value % 24) as usize;
+        let value = value.rem_euclid(24) as usize;
         let (name, quality) = match value {
             0       => (Name::Root,        Quality::Perfect),
             1       => (Name::Second,      Quality::Minor),
