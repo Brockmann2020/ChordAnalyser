@@ -87,7 +87,7 @@ impl Add<Note> for Note {
         if value < 0 {
             value = -value;
         }
-        
+
         let mut result = Interval::from_value(value);
         if result.value > 12 {
             result.shift_octave();

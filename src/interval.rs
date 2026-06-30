@@ -1,7 +1,8 @@
 use std::cmp::Ordering;
 use std::fmt::{write, Display, Pointer};
 use std::ops::Add;
-use crate::interval::Quality::Diminished;
+use crate::interval::Quality::{Augmented, Diminished, Major, Minor, Perfect};
+use crate::interval::Name::{Fifth, Fourth, Root, Second, Seventh, Sixth, Third, Ninth, Eleventh, Thirteenth, Octave};
 use crate::note::Note;
 
 #[derive(Copy, Clone, Eq, Debug)]
@@ -54,11 +55,11 @@ Diminished can have different delta values depending on the interval that it's a
 impl Into<isize> for Quality {
     fn into(self) -> isize {
         match self {
-            Quality::Perfect => 0,
-            Quality::Major => 0,
-            Quality::Minor => -1,
-            Quality::Augmented => 1,
-            Quality::Diminished => -1
+            Perfect => 0,
+            Major => 0,
+            Minor => -1,
+            Augmented => 1,
+            Diminished => -1
         }
     }
 }
@@ -82,33 +83,18 @@ impl Add<Quality> for Name {
 
 impl Display for Quality {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let str = match self {
-            Quality::Perfect => "Perfect",
-            Quality::Major => "Major",
-            Quality::Minor => "Minor",
-            Quality::Augmented => "Augmented",
-            Diminished => "Diminished", 
+        let quality: &str = match self {
+            Perfect | Major => "",
+            Minor | Diminished => "♭",
+            Augmented => "♯",
         };
-        write!(f, "{}", str)
+        write!(f, "{}", quality)
     }
 }
 
 impl Display for Name {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let str = match self {
-            Name::Root => "Root",
-            Name::Second => "Second",
-            Name::Third => "Third",
-            Name::Fourth => "Fourth",
-            Name::Fifth => "Fifth",
-            Name::Sixth => "Sixth",
-            Name::Seventh => "Seventh",
-            Name::Octave => "Octave",
-            Name::Ninth => "Ninth",
-            Name::Eleventh => "Eleventh",
-            Name::Thirteenth => "Thirteenth",
-        };
-        write!(f, "{}", str)
+        write!(f, "{}", (*self as usize).to_string())
     }
 }
 
@@ -153,6 +139,32 @@ impl Interval {
     pub fn new(value: usize, name: Name, quality: Quality) -> Self {
         name + quality
     }
+
+    pub fn verbose_name(&self) -> String {
+        let quality = match self.quality {
+            Perfect => "Perfect",
+            Major => "Major",
+            Minor => "Minor",
+            Augmented => "Augmented",
+            Diminished => "Diminished",
+        };
+
+        let name = match self.name {
+            Root => "Root",
+            Second => "Second",
+            Third => "Third",
+            Fourth => "Fourth",
+            Fifth => "Fifth",
+            Sixth => "Sixth",
+            Seventh => "Seventh",
+            Octave => "Octave",
+            Ninth => "Ninth",
+            Eleventh => "Eleventh",
+            Thirteenth => "Thirteenth",
+        };
+
+        format!("{}{}", quality, name)
+    }
     
     pub fn shift_octave(&mut self) {
         match self.value {
@@ -164,26 +176,26 @@ impl Interval {
     pub fn from_value(value: isize) -> Interval {
         let value = value.rem_euclid(24) as usize;
         let (name, quality) = match value {
-            0       => (Name::Root,        Quality::Perfect),
-            1       => (Name::Second,      Quality::Minor),
-            2       => (Name::Second,      Quality::Major),
-            3       => (Name::Third,       Quality::Minor),
-            4 | 16  => (Name::Third,       Quality::Major),
-            5       => (Name::Fourth,      Quality::Perfect),
-            6 | 19  => (Name::Fifth,       Quality::Diminished),
-            7       => (Name::Fifth,       Quality::Perfect),
-            8       => (Name::Sixth,       Quality::Minor),
-            9       => (Name::Sixth,       Quality::Major),
-            10 | 22 => (Name::Seventh,     Quality::Minor),
-            11 | 23 => (Name::Seventh,     Quality::Major),
-            12 | 24 => (Name::Octave,      Quality::Perfect),
-            13      => (Name::Ninth,       Quality::Minor),
-            14      => (Name::Ninth,       Quality::Major),
-            15      => (Name::Ninth,       Quality::Augmented),
-            17      => (Name::Eleventh,    Quality::Perfect),
-            18      => (Name::Eleventh,    Quality::Augmented),
-            20      => (Name::Thirteenth,  Quality::Minor),
-            21      => (Name::Thirteenth,  Quality::Major),
+            0       => (Root,       Perfect),
+            1       => (Second,     Minor),
+            2       => (Second,     Major),
+            3       => (Third,      Minor),
+            4 | 16  => (Third,      Major),
+            5       => (Fourth,     Perfect),
+            6 | 19  => (Fifth,      Diminished),
+            7       => (Fifth,      Perfect),
+            8       => (Sixth,      Minor),
+            9       => (Sixth,      Major),
+            10 | 22 => (Seventh,    Minor),
+            11 | 23 => (Seventh,    Major),
+            12 | 24 => (Octave,     Perfect),
+            13      => (Ninth,      Minor),
+            14      => (Ninth,      Major),
+            15      => (Ninth,      Augmented),
+            17      => (Eleventh,   Perfect),
+            18      => (Eleventh,   Augmented),
+            20      => (Thirteenth, Minor),
+            21      => (Thirteenth, Major),
             _  => unreachable!()
         };
         Interval { value, name, quality }

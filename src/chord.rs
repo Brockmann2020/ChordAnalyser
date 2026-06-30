@@ -1,8 +1,12 @@
 use std::collections::HashSet;
+use std::fmt::Display;
+use std::path::Prefix;
 use crate::interval::{Interval, Name, Quality};
-use crate::interval::Name::{Fifth, Fourth, Root, Second, Seventh, Sixth, Third, Thirteenth};
+use crate::interval::Name::{Fifth, Fourth, Root, Second, Seventh, Sixth, Third, Ninth, Eleventh, Thirteenth, Octave};
 use crate::interval::Quality::{Augmented, Diminished, Major, Minor, Perfect};
 use crate::note::{Letter, Note};
+use ChordQuality as Q;
+use crate::chord::Suspension::{Sus2, Sus4};
 
 #[derive(Debug)]
 pub struct Chord {
@@ -32,7 +36,7 @@ impl Chord {
         let intervals = Self::create_and_sort_intervals(&notes).unwrap(); // Implement Error Handling later
         let root = *notes.first().unwrap();
         let name = Self::evaluate_name(root, &intervals);
-        let mut alternatives: Vec<SlashChord> = Vec::new();
+        let /*mut*/ alternatives: Vec<SlashChord> = Vec::new();
 
         /*
         let mut seen = HashSet::new();
@@ -79,6 +83,90 @@ impl Chord {
     }
 
     fn evaluate_name(root: Note, intervals: &Vec<Interval>) -> String {
+
+
+        let mut name: String = root.to_string();
+        let mut quality: Option<ChordQuality> = None;
+        let mut alterations: Vec<&str> = Vec::new();
+        let mut adds: Vec<&str> = Vec::new();
+        let mut suspension: Option<Suspension> = None;
+
+        for interval in intervals {
+            match (interval.name, interval.quality) {
+                // Determine Quality
+                (Second, Major) => {
+                    quality = Some(Q::Sus);
+                    suspension = Some(Sus2);
+                },
+                (Third, Major) => quality = Some(Q::Major(None)),
+                (Third, Minor) => quality = Some(Q::Minor(None)),
+                (Fourth, Perfect) => {
+                    quality = Some(Q::Sus);
+                    suspension = Some(Sus4)
+                },
+                (Fifth, Diminished) => quality = Some(Q::Diminished),
+                (Fifth, Perfect) => (), // Perfect Fifth doesn't change chord name if vector was assembled correctly
+                (Fifth, Augmented) => {
+                    if quality.is_some_and(|q| q == Q::Major(None)) {
+                        quality = Some(Q::Augmented);
+                    } else {
+                        alterations.push("♯5")
+                    }
+                },
+                (Sixth, Minor) => alterations.push("♭6"),
+                (Sixth, Major) => {
+                    if let Some(q) = quality {
+                        match q {
+                            Q::Minor(None) => quality = Some(Q::Minor(Some(Sixth))),
+                            Q::Major(None) | Q::Sus => quality = Some(Q::Major(Some(Sixth))),
+                            q => unreachable!("6 is not allowed if quality is {}", q)
+                        }
+                    } else {
+                        panic!("No third") //todo: add no third alteration
+                    }
+                },
+                (Seventh, Diminished) => quality = Some(Q::Diminished7),
+                (Seventh, Minor) => {
+                    if let Some(q) = quality {
+                        match q {
+                            Q::Minor(None) => quality = Some(Q::Minor(Some(Seventh))),
+                            Q::Major(None) | Q::Sus => quality = Some(Q::Dominant(Seventh)),
+                            q => unreachable!("min7 is not allowed if quality is {}", q)
+                        }
+                    } else {
+                        panic!("No third") //todo: add no third alteration
+                    }
+                },
+                (Seventh, Major) => {
+                    if let Some(q) = quality {
+                        match q {
+                            Q::Minor(None) => quality = Some(Q::MinorMajor(Seventh)),
+                            Q::Major(None) | Q::Sus => quality = Some(Q::Major(Some(Seventh))),
+                            q => unreachable!("maj7 not allowed if quality is {}", q)
+                        }
+                    } else {
+                        panic!("No third") //todo: add no third alteration
+                    }
+                }
+                (Octave, _) => { /* Octave does nothing */ },
+                (Ninth, Major) => {
+                    if let Some(q) = quality {
+                        match q {
+                            Q::Major(Some(extension)) | Q::Minor(Some(extension)) => {
+
+                            }
+                            Q::Dominant(_) | Q::MinorMajor(_) => {}
+                            Q::Major(None) | Q::Minor(None) => adds.push("9"),
+                            q => unreachable!("maj7 not allowed if quality is {}", q)
+                        }
+                    }
+                },
+                (Ninth, _) => {  },
+
+
+                (_, _) => unreachable!("Illegal interval: {}", interval), // Ideally, create_and_sort_intervals() should eliminate every other possibility
+            }
+        }
 
         "Not implemented yet".to_string()
     }
@@ -167,14 +255,86 @@ impl Chord {
             }
 
             if interval.name == Seventh {
-                if  interval.quality == Minor && seventh.is_some_and(|i|i.quality == Major) ||
-                    interval.quality == Major && seventh.is_some_and(|i|i.quality == Minor) {
+                if  interval.quality == Major && seventh.is_some_and(|i|i.quality == Minor) {
                     return Err("A chord can't have a Major and a Minor Seventh at the same time".to_string())
                 }
                 continue;
             }
         }
+        intervals.sort();
 
         Ok(intervals)
+    }
+}
+
+#[derive(PartialEq, Eq, Copy, Clone)]
+enum Suspension {
+    Sus2,
+    Sus4,
+}
+
+#[derive(PartialEq, Eq, Copy, Clone)]
+enum ChordQuality {
+    Major(Option<Name>),
+    Minor(Option<Name>),
+    Dominant(Name),
+    MinorMajor(Name),
+    Augmented,
+    Diminished,
+    Diminished7,
+    SixNine,
+    Sus, // Might not be needed and replaced by None, but for now I believe it reduces risk of unforeseen errors
+}
+
+impl Display for ChordQuality {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+
+        macro_rules! format_extension {
+            // Format for dominant extension
+            ($extension:expr) => {{
+                match $extension {
+                    Seventh | Ninth | Eleventh | Thirteenth => $extension.to_string(),
+                    name => panic!("Illegal extension name: name={}", name),
+                }
+            }};
+
+            // Format for dominant, m(maj) extension
+            ($extension:expr, $template:expr) => {{
+                match $extension {
+                    Seventh | Ninth | Eleventh | Thirteenth => {
+                        $template.replace("{}", &$extension.to_string())
+                    }
+                    name => panic!("Illegal extension name: name={}", name),
+                }
+            }};
+
+            // Format for min, maj extension
+            ($extension:expr, $prefix:expr, $alt:expr) => {{
+                if let Some(extension) = $extension {
+                    match extension {
+                        Sixth => format!("{}{}", $alt, extension.to_string()),
+                        Seventh | Ninth | Eleventh | Thirteenth => format!("{}{}", $prefix, extension),
+                        // If a false extension is used the resulting error cannot be recovered
+                        name => panic!("Illegal extension name: name={}", name),
+                    }
+                } else {
+                    $alt.to_string()
+                }
+            }};
+        }
+
+        let str: String = match self {
+            Q::Major(extension) => format_extension!(extension, "maj", ""),
+            Q::Minor(extension) => format_extension!(extension, "m", "m"),
+            Q::Dominant(extension) => format_extension!(extension),
+            Q::MinorMajor(extension) => format_extension!(extension, "m(maj{})"),
+            Q::Augmented => "aug".to_string(),
+            Q::Diminished => "dim".to_string(),
+            Q::Diminished7 => "dim7".to_string(),
+            Q::SixNine => "6/9".to_string(),
+            Q::Sus => "".to_string(),
+        };
+
+        write!(f, "{}", str)
     }
 }
