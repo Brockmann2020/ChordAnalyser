@@ -1,3 +1,18 @@
+//! Chord recognition: turn a set of notes into a chord name.
+//!
+//! [`Chord::from_notes`] takes the first note as the root and works in two
+//! stages:
+//!
+//! 1. `create_and_sort_intervals` builds the interval from the root to every
+//!    note and then places each interval in its musically correct octave
+//!    (a second becomes a ninth when a third is present, a diminished fifth
+//!    becomes a sharp eleventh over a perfect fifth, and so on).
+//! 2. [`ChordBuilder`] walks the sorted intervals and assembles the name from
+//!    a quality (major/minor/dominant/…), an optional extension (6, 7, 9, 11,
+//!    13), a suspension (sus2/sus4) and any alterations or added tones.
+//!
+//! The result is a [`Chord`] whose [`Display`] is the chord symbol, e.g. `C⁷`.
+
 use std::collections::HashSet;
 use std::fmt::{format, Display};
 use std::path::Prefix;

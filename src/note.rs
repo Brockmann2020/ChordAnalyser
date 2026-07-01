@@ -1,3 +1,15 @@
+//! Notes: pitch letters, accidentals and their semitone values.
+//!
+//! A [`Note`] carries a raw semitone `value` (letter + accidental) together
+//! with its spelling ([`Letter`] + [`Accidental`]), so that enharmonically
+//! equal notes can still be distinguished when a chord is named.
+//!
+//! The [`Add`] implementation `Note + Note` yields the [`Interval`] measured
+//! *upward* from the left note to the right note, modulo the octave. Measuring
+//! upward (rather than as an absolute difference) is what makes a note below
+//! the root — e.g. B♭ under C — resolve to a minor seventh instead of a
+//! major second.
+
 use std::arch::x86_64::__cpuid;
 use std::cmp::Ordering;
 use std::fmt;
@@ -97,6 +109,41 @@ impl From<Letter> for Note {
 impl Note {
     fn new(letter: Letter, accidental: Accidental) -> Note {
         letter + accidental
+    }
+
+    /// Parse a single note token like `C`, `Bb`, `F#`, `Eb`, `A♯`.
+    /// The first character is the letter (case-insensitive), an optional second
+    /// character is the accidental: `#`/`♯` for sharp, `b`/`♭` for flat.
+    pub fn parse(token: &str) -> Result<Note, String> {
+        let token = token.trim();
+        let mut chars = token.chars();
+
+        let letter = match chars.next() {
+            Some(c) => match c.to_ascii_uppercase() {
+                'A' => Letter::A,
+                'B' => Letter::B,
+                'C' => Letter::C,
+                'D' => Letter::D,
+                'E' => Letter::E,
+                'F' => Letter::F,
+                'G' => Letter::G,
+                other => return Err(format!("'{}' is not a valid note letter (A-G)", other)),
+            },
+            None => return Err("empty note".to_string()),
+        };
+
+        let accidental = match chars.next() {
+            None => Accidental::Natural,
+            Some('#') | Some('\u{266f}') => Accidental::Sharp,
+            Some('b') | Some('\u{266d}') => Accidental::Flat,
+            Some(other) => return Err(format!("'{}' is not a valid accidental (# or b)", other)),
+        };
+
+        if chars.next().is_some() {
+            return Err(format!("'{}' is not a valid note", token));
+        }
+
+        Ok(letter + accidental)
     }
 
     fn switch_accidental(&mut self) {

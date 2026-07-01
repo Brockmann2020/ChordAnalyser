@@ -1,3 +1,14 @@
+//! Intervals: a distance between two notes described by a diatonic [`Name`]
+//! (root, third, fifth, seventh, ninth, …) and a [`Quality`] (perfect, major,
+//! minor, augmented, diminished).
+//!
+//! Each interval also stores its `value` in semitones. [`Interval::from_value`]
+//! maps a semitone count (0–24) to the canonical name/quality pair, and the
+//! `Name + Quality` [`Add`] implementation builds an interval from its parts,
+//! e.g. `Fifth + Diminished`. [`Interval::shift_octave`] moves an interval up
+//! or down by an octave, which the chord builder uses to turn, say, a second
+//! into a ninth when a third is also present.
+
 use std::cmp::Ordering;
 use std::fmt::{write, Display, Pointer};
 use std::ops::Add;
