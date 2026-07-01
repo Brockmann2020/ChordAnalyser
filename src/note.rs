@@ -83,16 +83,8 @@ impl Add<Note> for Note {
     type Output = Interval;
 
     fn add(self, rhs: Note) -> Self::Output {
-        let mut value = self.value as isize - rhs.value as isize;
-        if value < 0 {
-            value = -value;
-        }
-
-        let mut result = Interval::from_value(value);
-        if result.value > 12 {
-            result.shift_octave();
-        }
-        result
+        let value = (rhs.value as isize - self.value as isize).rem_euclid(12);
+        Interval::from_value(value)
     }
 }
 

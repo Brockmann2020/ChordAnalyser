@@ -27,6 +27,40 @@ pub enum Name {
     Thirteenth=20,
 }
 
+impl Name {
+    pub fn as_super_script(&self) -> String {
+        match self {
+            Root | Octave => "".to_string(),
+            Second => "²".to_string(),
+            Third => "³".to_string(),
+            Fourth => "⁴".to_string(),
+            Fifth => "⁵".to_string(),
+            Sixth => "⁶".to_string(),
+            Seventh => "⁷".to_string(),
+            Ninth => "⁹".to_string(),
+            Eleventh => "¹¹".to_string(),
+            Thirteenth => "¹³".to_string(),
+        }
+    }
+
+    pub fn as_degree(&self) -> String {
+        match self {
+            Root => "1".to_string(),
+            Second => "2".to_string(),
+            Third => "3".to_string(),
+            Fourth => "4".to_string(),
+            Fifth => "5".to_string(),
+            Sixth => "6".to_string(),
+            Seventh => "7".to_string(),
+            Octave => "8".to_string(),
+            Ninth => "9".to_string(),
+            Eleventh => "11".to_string(),
+            Thirteenth => "13".to_string(),
+
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Quality {
     Perfect,
@@ -100,7 +134,7 @@ impl Display for Name {
 
 impl Display for Interval {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{} {}", self.name, self.quality)
+        write!(f, "{}{}", self.quality, self.name.as_degree())
     }
 }
 
@@ -163,7 +197,11 @@ impl Interval {
             Thirteenth => "Thirteenth",
         };
 
-        format!("{}{}", quality, name)
+        if self.name == Root || self.name == Octave {
+            return name.to_string()
+        }
+
+        format!("{} {}", quality, name)
     }
     
     pub fn shift_octave(&mut self) {
@@ -199,5 +237,9 @@ impl Interval {
             _  => unreachable!()
         };
         Interval { value, name, quality }
+    }
+
+    pub fn as_super_script(&self) -> String {
+        format!("{}{}", self.quality, self.name.as_super_script())
     }
 }
