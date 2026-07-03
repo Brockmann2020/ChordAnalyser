@@ -102,7 +102,7 @@ impl Chord {
         let mut intervals = Vec::new();
         intervals.push(Root.into());
 
-        // Get all the intervals
+        // 1. Get all the intervals
         for note in notes.iter() {
             if *note == root {
                 continue;
@@ -111,14 +111,47 @@ impl Chord {
         }
         intervals.sort();
 
-
-        // 1. Determine Right Octave of the Interval
-        let interval_iter = intervals.clone();
-        let third: Option<&Interval> = interval_iter.iter().find(|interval| {interval.name == Third});
-        let sixth: Option<&Interval> = interval_iter.iter().find(|interval| {interval.name == Sixth});
-        let seventh: Option<&Interval> = interval_iter.iter().find(|interval| {interval.name == Seventh});
-        let has_p5 = interval_iter.iter().find(|interval| {**interval == Fifth + Perfect}).is_some();
+        // 2. Store Useful Intervals
+        let mut has_3 = false;
+        let mut maj_3: Option<Interval> = None;
+        let mut min_3: Option<Interval> = None;
+        let mut has_p5 = false;
+        let mut has_maj_6 = false;
+        let mut has_7 = false;
+        let mut maj_7: Option<Interval> = None;
+        let mut min_7: Option<Interval> = None;
         let mut is_diminished = false;
+
+        for interval in intervals.iter() {
+            match (interval.name, interval.quality) {
+                (Third, q) => {
+                    has_3 = true;
+                    if q == Major {
+                        maj_3 = Some(*interval);
+                    } else {
+                        min_3 = Some(*interval);
+                    }
+                }
+                (Fifth, Perfect) => has_p5 = true,
+                (Sixth, Major) => has_maj_6 = true,
+                (Seventh, q) => {
+                    has_7 = true;
+                    if q == Major {
+                        maj_7 = Some(*interval)
+                    } else {
+                        min_7 = Some(*interval)
+                    }
+                },
+                (_, _) => {}
+            }
+        }
+        if maj_7.is_some() && min_7.is_some() {
+            panic!("A chord can't have a Major and a Minor Seventh at the same time")
+        }
+
+        // 3. Determine Right Octave of the Interval
+        let mut has_2 = false;
+        let mut switch_2 = false;
 
         for interval in intervals.iter_mut() {
 
@@ -127,26 +160,32 @@ impl Chord {
             }
 
             // Second becomes ninth if either a third is present or if the quality is minor
-            if *interval == Second + Minor || *interval == Second + Major && third.is_some() {
+            if *interval == Second + Minor || *interval == Second + Major && has_3 {
                 interval.shift_octave(); continue;
+            } else {
+                has_2 = true;
             }
 
             // Minor Third becomes Sharp Ninth if Major third is present -> Jimi Hendrix Chord
-            if *interval == Third + Minor && third.is_some_and(|t|t.quality == Major){
-                let str = format!("{}",third.unwrap().verbose_name());
+            if *interval == Third + Minor && maj_3.is_some() {
                 interval.shift_octave(); continue;
             }
 
-            // Fourth becomes eleventh if third is present
-            if interval.name == Fourth && third.is_some() {
-                interval.shift_octave(); continue;
+            // Fourth becomes eleventh if third is present, 2 becomes 9 if Fourth is present
+            if *interval == Fourth + Perfect {
+                if has_3 {
+                    interval.shift_octave();
+                } else if has_2 {
+                    switch_2 = true;
+                }
+                continue;
             }
 
             // Perfect fifth doesn't affect naming, flat five turns into sharp eleventh if perfect 5 is present.
             if *interval == Fifth + Diminished {
                 if has_p5 {
                     interval.shift_octave();
-                } else if third.is_some_and(|t|t.quality == Minor) && seventh.is_none() { // Minor third + flat five -> diminished chord
+                } else if min_3.is_some() && !has_7 { // Minor third + flat five -> diminished chord
                     is_diminished = true;
                 }
                 continue;
@@ -155,26 +194,22 @@ impl Chord {
             // Minor sixth can be either a diminished seventh or an augmented five depending on the third
             if interval.name == Sixth {
                 if interval.quality == Minor {
-                    if let Some(third) = third {
-                        match third.quality {
-                            Major => *interval = Fifth + Augmented,
-                            Minor => if sixth.is_some_and(|i|i.quality == Major) {
-                                interval.shift_octave();
-                            }
-                            _ => unreachable!()
+                    if has_3 {
+                        if maj_3.is_some() {
+                            *interval = Fifth + Augmented
+                        } else if has_maj_6 {
+                            interval.shift_octave();
                         }
                     }
-                    if let Some(seventh) = seventh {
-                        match seventh.quality {
-                            Major => {
-                                if has_p5 {
-                                    interval.shift_octave();
-                                } else {
-                                    *interval = Fifth + Augmented
-                                }
+                    if has_7 {
+                        if maj_7.is_some() {
+                            if has_p5 {
+                                interval.shift_octave();
+                            } else {
+                                *interval = Fifth + Augmented
                             }
-                            Minor => interval.shift_octave(),
-                            _ => unreachable!()
+                        } else {
+                            interval.shift_octave()
                         }
                     }
                 } else if interval.quality == Major {
@@ -184,14 +219,11 @@ impl Chord {
                 }
                 continue;
             }
-
-            if interval.name == Seventh {
-                if  interval.quality == Major && seventh.is_some_and(|i|i.quality == Minor) {
-                    panic!("A chord can't have a Major and a Minor Seventh at the same time")
-                }
-                continue;
-            }
         }
+        if switch_2 {
+            intervals.iter_mut().find(|i| {**i == Second + Major}).unwrap().shift_octave();
+        }
+
         intervals.sort();
 
         intervals

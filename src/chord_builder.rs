@@ -129,7 +129,7 @@ impl ChordBuilder {
 
         match (extension.name, extension.quality) {
             (Sixth, Major) => {
-                validate_descriptor!(self, Sixth + Major, Q::Major, Q::Minor);
+                validate_descriptor!(self, Sixth + Major, Q::Major, Q::Minor, Q::Augmented);
                 self.extension = Some(E::Sixth);
                 true
             }
@@ -150,7 +150,7 @@ impl ChordBuilder {
                 true
             },
             (Ninth, Major) => {
-                validate_descriptor!(self, Ninth + Major, Q::Major, Q::Minor, Q::Dominant, Q::MinorMajor);
+                validate_descriptor!(self, Ninth + Major, Q::Major, Q::Minor, Q::Dominant, Q::MinorMajor, Q::Augmented);
                 if self.extension.is_some_and(|e| e == E::Sixth) {
                     self.extension = Some(E::SixNine);
                 } else if self.extension.is_some_and(|e| e == E::Seventh) {
@@ -183,7 +183,7 @@ impl ChordBuilder {
     }
 
     fn set_alteration(&mut self, alteration: Interval) {
-        if self.extension.is_some() {
+        if self.extension.is_some() || self.quality == Q::Diminished7{
             self.alterations.push(alteration.as_super_script())
         } else {
             self.adds.push(format!("ᵃᵈᵈ{}", alteration.as_super_script()));
