@@ -31,6 +31,7 @@ use crate::chord::Chord;
 mod note;
 mod interval;
 mod chord;
+mod chord_builder;
 
 /// Split an input line into note tokens (separated by whitespace or commas)
 /// and parse each one into a `Note`.
